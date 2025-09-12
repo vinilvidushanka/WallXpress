@@ -1,267 +1,144 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  TextInput, 
-  Text, 
-  TouchableOpacity, 
-  Image, 
-  Alert, 
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
-  SafeAreaView,
-  StatusBar
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { MaterialIcons } from '@expo/vector-icons';
-import { auth, db } from '../../firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { uploadProfileImageNoCORS } from '../../service/uploadService';
-import { uploadProfileImage } from '@/service/uploadService';
+  Alert,
+} from "react-native";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import * as Animatable from "react-native-animatable";
+import * as Icons from "phosphor-react-native";
+import { FontAwesome } from "@expo/vector-icons";
+import { getProfileImage } from "../../service/imageService";
+import { UserDataType } from "@/types/task";
+import { useAuth } from "@/context/AuthContext";
+import * as ImagePicker from "expo-image-picker";
+import { updateUser } from "../../service/userService";
 
-type Props = {
-  userId: string;
-  name: string;
-  profileImage: string;
-  closeModal: () => void;
-  onProfileUpdate: (name: string, profileImage: string) => void;
-};
-
-const ProfileModal: React.FC<Props> = ({ 
-  userId, 
-  name: initialName, 
-  profileImage: initialImage, 
-  closeModal,
-  onProfileUpdate 
-}) => {
-  const [name, setName] = useState(initialName);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+const ProfileModal = () => {
+  const { user, updateUserData } = useAuth();
+  const [userData, setUserData] = useState<UserDataType>({
+    name: "",
+    image: null,
+  });
   const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const router = useRouter();
 
-  const displayImage = selectedImage || initialImage;
+  useEffect(() => {
+    setUserData({
+      name: user?.name || "",
+      image: user?.image || null,
+    });
+  }, [user]);
 
-  const pickImage = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        return Alert.alert(
-          "Permission Required", 
-          "Please allow access to photos to update your profile picture"
-        );
-      }
+  const onPickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-        allowsMultipleSelection: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
-      }
-    } catch (error: any) {
-      Alert.alert("Error", "Failed to pick image: " + error.message);
+    if (!result.canceled) {
+      setUserData({ ...userData, image: result.assets[0] });
     }
   };
 
-  const saveProfile = async () => {
-    if (!name.trim()) {
-      return Alert.alert("Error", "Please enter your name");
-    }
-
-    if (name.trim().length < 2) {
-      return Alert.alert("Error", "Name must be at least 2 characters long");
+  const onSubmit = async () => {
+    if (!userData.name.trim()) {
+      Alert.alert("User", "Please fill in the name field");
+      return;
     }
 
     setLoading(true);
-    setUploadProgress(0);
-    
-    try {
-      let finalImageUrl = initialImage;
+    const res = await updateUser(user?.uid as string, userData);
+    setLoading(false);
 
-      // Upload new image if selected
-      if (selectedImage) {
-        try {
-          setUploadProgress(25);
-          console.log('Starting image upload...');
-          
-          // Try the CORS-free method first
-          try {
-            finalImageUrl = await uploadProfileImageNoCORS(selectedImage, userId);
-          } catch (corsError) {
-            console.log('CORS-free method failed, trying fallback...');
-            // Fallback to original method
-            finalImageUrl = await uploadProfileImage(selectedImage, userId);
-          }
-          
-          setUploadProgress(75);
-          console.log('Image upload successful:', finalImageUrl);
-        } catch (uploadError: any) {
-          console.error('Upload error:', uploadError);
-          Alert.alert(
-            "Upload Failed", 
-            `Failed to upload image: ${uploadError.message}\n\nYou can still save your name changes.`,
-            [
-              { text: "Save Name Only", onPress: () => proceedWithSave(initialImage) },
-              { text: "Cancel", style: "cancel" }
-            ]
-          );
-          return;
-        }
-      }
-
-      await proceedWithSave(finalImageUrl);
-
-    } catch (error: any) {
-      console.error('Profile save error:', error);
-      Alert.alert(
-        "Error", 
-        error.message || "Failed to update profile. Please try again."
-      );
-    } finally {
-      setLoading(false);
-      setUploadProgress(0);
+    if (res.success) {
+      updateUserData(user?.uid as string);
+      Alert.alert("User", "Profile updated successfully");
+      router.back();
+    } else {
+      Alert.alert("User", "Something went wrong");
     }
-  };
-
-  const proceedWithSave = async (imageUrl: string) => {
-    try {
-      setUploadProgress(90);
-
-      // Update user document in Firestore
-      const userRef = doc(db, "users", userId);
-      await setDoc(userRef, { 
-        name: name.trim(),
-        profileImage: imageUrl,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      setUploadProgress(100);
-
-      // Call callback to update parent component
-      onProfileUpdate(name.trim(), imageUrl);
-      
-      Alert.alert("Success", "Profile updated successfully!", [
-        { text: "OK", onPress: closeModal }
-      ]);
-
-    } catch (error: any) {
-      throw new Error(`Failed to save profile: ${error.message}`);
-    }
-  };
-
-  const getUploadStatusText = () => {
-    if (uploadProgress < 25) return 'Preparing image...';
-    if (uploadProgress < 75) return 'Uploading image...';
-    if (uploadProgress < 90) return 'Processing...';
-    if (uploadProgress < 100) return 'Saving profile...';
-    return 'Complete!';
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-900">
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
-      
-      {/* Header */}
-      <View className="flex-row items-center justify-between p-4 border-b border-gray-700">
-        <TouchableOpacity onPress={closeModal} className="p-2">
-          <MaterialIcons name="close" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text className="text-white text-lg font-semibold">Edit Profile</Text>
-        <View className="w-8" />
-      </View>
-
-      <View className="flex-1 p-6">
-        {/* Profile Image Section */}
-        <View className="items-center mb-8">
-          <TouchableOpacity 
-            onPress={pickImage}
-            className="relative"
-            disabled={loading}
+    <View className="flex-1 bg-gradient-to-b from-pink-400 to-red-300">
+      <Animatable.View
+        animation="slideInUp"
+        duration={500}
+        easing="ease-out-cubic"
+        className="flex-1 bg-white mt-12 rounded-t-3xl p-6 shadow-2xl"
+      >
+        {/* Header */}
+        <View className="flex-row items-center justify-center mb-8 relative">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="absolute left-0 bg-pink-500 rounded-2xl p-2 w-12 items-center shadow-md"
           >
-            <Image 
-              source={{ uri: displayImage }} 
-              className="w-32 h-32 rounded-full bg-gray-700 border-4 border-gray-600"
-              defaultSource={{ uri: 'https://via.placeholder.com/128/374151/9CA3AF?text=User' }}
-            />
-            
-            {/* Edit Icon Overlay */}
-            <View className="absolute bottom-2 right-2 bg-green-500 p-2 rounded-full">
-              <MaterialIcons name="camera-alt" size={16} color="#fff" />
-            </View>
-            
-            {/* Upload Progress Overlay */}
-            {loading && uploadProgress > 0 && (
-              <View className="absolute inset-0 bg-black bg-opacity-70 rounded-full items-center justify-center">
-                <ActivityIndicator color="#10b981" size="large" />
-                <Text className="text-white text-xs mt-2 text-center px-2">
-                  {getUploadStatusText()}
-                </Text>
-                <View className="w-20 h-2 bg-gray-700 rounded-full mt-2">
-                  <View 
-                    className="h-2 bg-green-500 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </View>
-              </View>
-            )}
+            <FontAwesome name="caret-left" size={28} color="white" />
           </TouchableOpacity>
-          
-          <Text className="text-gray-400 text-sm mt-2 text-center">
-            Tap to change profile picture
-          </Text>
+
+          <Text className="text-xl font-bold text-gray-800">Update Profile</Text>
         </View>
 
-        {/* Name Input Section */}
-        <View className="mb-6">
-          <Text className="text-white text-base font-medium mb-2">Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter your name"
-            placeholderTextColor="#9ca3af"
-            className="bg-gray-800 p-4 rounded-xl text-white text-base border border-gray-700 focus:border-green-500"
-            editable={!loading}
-            maxLength={50}
+        {/* Profile Image */}
+        <View className="relative w-[90px] h-[90px] mx-auto mb-8">
+          <Image
+            source={getProfileImage(userData.image)}
+            className="w-full h-full rounded-full border-2 border-pink-400"
+            resizeMode="cover"
           />
-          <Text className="text-gray-500 text-xs mt-1">
-            {name.length}/50 characters
-          </Text>
+
+          <TouchableOpacity
+            onPress={onPickImage}
+            className="bg-pink-500 rounded-full w-8 h-8 flex items-center justify-center absolute bottom-0 right-0 shadow-md"
+          >
+            <Icons.Pencil size={18} color="white" />
+          </TouchableOpacity>
         </View>
+
+        {/* Name Input */}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Animatable.View animation="fadeInUp" delay={200} className="mb-6">
+            <Text className="text-gray-500 mb-2">Name</Text>
+            <TextInput
+              placeholder="Enter your name"
+              placeholderTextColor="#9CA3AF"
+              className="bg-gray-100 text-gray-800 rounded-xl p-4 text-base"
+              value={userData.name}
+              onChangeText={(value) =>
+                setUserData({ ...userData, name: value })
+              }
+            />
+          </Animatable.View>
+        </ScrollView>
 
         {/* Save Button */}
-        <TouchableOpacity
-          className={`p-4 rounded-xl mt-4 ${loading ? 'bg-gray-600' : 'bg-green-500'}`}
-          onPress={saveProfile}
-          disabled={loading}
-        >
-          {loading ? (
-            <View className="flex-row items-center justify-center">
-              <ActivityIndicator color="#fff" size="small" />
-              <Text className="text-white text-center font-semibold text-base ml-2">
-                {getUploadStatusText()}
+        <Animatable.View animation="bounceIn" delay={600}>
+          <TouchableOpacity
+            className={`py-4 rounded-2xl mt-6 shadow-md ${
+              loading ? "bg-gray-400" : "bg-gradient-to-r from-pink-500 to-red-500"
+            }`}
+            activeOpacity={0.8}
+            disabled={loading}
+            onPress={onSubmit}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text className="text-center text-white font-semibold text-base">
+                Save Changes
               </Text>
-            </View>
-          ) : (
-            <Text className="text-white text-center font-semibold text-base">
-              Save Changes
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Cancel Button */}
-        <TouchableOpacity
-          className="p-4 rounded-xl mt-3 border border-gray-600"
-          onPress={closeModal}
-          disabled={loading}
-        >
-          <Text className="text-gray-300 text-center font-medium text-base">
-            Cancel
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+            )}
+          </TouchableOpacity>
+        </Animatable.View>
+      </Animatable.View>
+    </View>
   );
 };
 

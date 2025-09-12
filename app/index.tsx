@@ -1,27 +1,29 @@
-import { View, Text, Pressable, ActivityIndicator } from 'react-native'
-import React, { useEffect } from 'react'
-import {useRouter } from 'expo-router'
-import { useAuth } from '@/context/AuthContext'
+import { View, ActivityIndicator } from "react-native";
+import React, { useEffect } from "react";
+import { useRouter } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
-const router = useRouter()
-const{user,loading} = useAuth()
+  const router = useRouter();
+  const { user, loading } = useAuth();
 
-useEffect(() => {
-    if(!loading){
-        if(user){
-            router.push('/home')
-        }else{
-            router.push('/login')
+  useEffect(() => {
+    if (!loading) {
+      setTimeout(() => {
+        if (user) {
+          router.replace("/home");
+        } else {
+          router.replace("/login");
         }
+      }, 0);
     }
-}, [user,loading])
+  }, [user, loading]);
 
   return loading ? (
-    <View className='flex-1 w-full justify-center align-items-center'>
-      <ActivityIndicator size='large' />
+    <View className="flex-1 w-full justify-center items-center">
+      <ActivityIndicator size="large" />
     </View>
-  ): null;
-}
+  ) : null;
+};
 
-export default Index
+export default Index;
