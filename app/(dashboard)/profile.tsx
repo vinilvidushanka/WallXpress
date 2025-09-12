@@ -9,10 +9,12 @@ import * as Icons from "phosphor-react-native";
 import * as Animatable from "react-native-animatable";
 import { signOut } from "firebase/auth";
 import { useRouter } from "expo-router";
+import { useFavorites } from "../../context/FavoritesContext";
 
 const ProfileScreen = () => {
   const { user } = useAuth();
   const router = useRouter();
+  const { favorites } = useFavorites(); // favorites from context
 
   const accountOptions: accountOptionType[] = [
     {
@@ -67,7 +69,6 @@ const ProfileScreen = () => {
 
   return (
     <ScreenWrapper>
-      {/* Gradient Background */}
       <View className="flex-1 bg-gradient-to-b from-pink-400 to-red-400">
         <ScrollView showsVerticalScrollIndicator={false}>
           <Animatable.View
@@ -102,7 +103,7 @@ const ProfileScreen = () => {
                   key={index.toString()}
                   animation="slideInRight"
                   delay={index * 150}
-                  className="mb-8" // Increased spacing between buttons
+                  className="mb-6"
                 >
                   <TouchableOpacity
                     onPress={() => handlePress(item)}
@@ -126,6 +127,30 @@ const ProfileScreen = () => {
                   </TouchableOpacity>
                 </Animatable.View>
               ))}
+            </View>
+
+            {/* Favorites Section */}
+            <View className="w-full mt-8 px-2">
+              <Text className="text-white font-bold text-xl mb-4">Favorites</Text>
+              {favorites.length === 0 ? (
+                <Text className="text-white/70">No favorite wallpapers yet.</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {favorites.map((image, index) => (
+                    <View
+                      key={index}
+                      className="mr-4 w-32 h-48 rounded-2xl overflow-hidden shadow-md border border-gray-700"
+                    >
+                      <Image
+                        source={image}
+                        style={{ width: 128, height: 192 }}
+                        className="rounded-2xl"
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
             </View>
           </Animatable.View>
         </ScrollView>
