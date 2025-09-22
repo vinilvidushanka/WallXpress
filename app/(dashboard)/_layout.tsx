@@ -44,28 +44,30 @@ const DashBoardLayout = () => {
             color={data.color} />
         )
          }} />
-    <Tabs.Screen name="setting" 
-    options=
-    {{
-         title: "Setting" ,
-         tabBarIcon:(data)=>(
-            <MaterialIcons 
-            name="settings" 
-            size={data.size} 
-            color={data.color} />
-        )
-         }} />
-    <Tabs.Screen name="tasks" 
-    options=
-    {{ 
-        title: "tasks" ,
-        tabBarIcon:(data)=>(
-            <MaterialIcons 
-            name="check-circle" 
-            size={data.size} 
-            color={data.color} />
-        )
-        }} />
+    <Tabs.Screen
+      name="Remove BG"
+      options={{
+        title: "Remove BG",
+        tabBarIcon: (data) => (
+          <MaterialIcons
+            name="photo-library"  
+            size={data.size}
+            color={data.color}
+          />
+        ),
+      }}
+    />
+
+    <Tabs.Screen
+      name="uploads"   
+      options={{
+        title: "Uploads",
+        tabBarIcon: (data) => (
+          <MaterialIcons name="check-circle" size={data.size} color={data.color} />
+        ),
+      }}
+    />
+
   </Tabs>
 }
 
