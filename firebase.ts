@@ -7,8 +7,8 @@ const firebaseConfig = {
   apiKey: "AIzaSyDw6HKBlla2UhqsPlXmDnJBqfDANQWYhkc",
   authDomain: "wallxpress-50f0c.firebaseapp.com",
   projectId: "wallxpress-50f0c",
-  // storageBucket: "wallxpress-50f0c.firebasestorage.app",
-  storageBucket: "wallxpress-50f0c.appspot.com",
+  storageBucket: "wallxpress-50f0c.firebasestorage.app",
+  // storageBucket: "wallxpress-50f0c.appspot.com",
   messagingSenderId: "413776784072",
   appId: "1:413776784072:web:ec458abd857d7a1b69d3fd"
 };

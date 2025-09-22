@@ -10,22 +10,23 @@ import {
 } from "firebase/auth";
 import { auth } from "@/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import * as FileSystem from "expo-file-system";
-import { db } from "@/firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/firebase";
+import { Alert } from "react-native";
 
+// Login function
 const login = (email: string, password: string) => {
   return signInWithEmailAndPassword(auth, email, password);
 };
 
+// Logout function
 const logOut = () => {
   return signOut(auth);
 };
 
+// Register function
 export const register = async (email: string, password: string) => {
   try {
-    console.log("Registering user...", email, password);
-
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user: User = userCredential.user;
 
@@ -38,99 +39,43 @@ export const register = async (email: string, password: string) => {
       createdAt: new Date().toISOString(),
     });
 
+    Alert.alert("Register Success", "User registered successfully!", [{ text: "OK" }]);
+
     return { success: true, user };
   } catch (error: any) {
     console.log("Error registering user:", error);
+    Alert.alert("Register Failed", error.message || "Failed to register user.", [{ text: "OK" }]);
     return { success: false, message: error.message || "Failed to register user." };
   }
 };
 
+// Update user email
 const updateUserEmail = (user: User, newEmail: string) => {
   return updateEmail(user, newEmail);
 };
 
+// Update user password
 const updateUserPassword = (user: User, newPassword: string) => {
   return updatePassword(user, newPassword);
 };
 
+// Update user profile (display name)
 const updateUserProfile = (user: User, name?: string) => {
-  return updateProfile(user, {
-    displayName: name
-  });
-}
+  return updateProfile(user, { displayName: name });
+};
 
-// const updateUserProfile = async (
-//   user: User,
-//   name?: string,
-//   photoURL?: string
-// ): Promise<{ success: boolean; message: string }> => {
-//   try {
-//     console.log("photoURL", photoURL);
-//     await updateProfile(user, {
-//       displayName: name,
-//       photoURL: photoURL,
-//     });
-
-//     return {
-
-//       success: true,
-//       message: "Profile updated successfully!",
-//     };
-//   } catch (error: any) {
-//     return {
-//       success: false,
-//       message: error.message || "Failed to update profile.",
-//     };
-//   }
-// };
-
-  
+// Delete current user
 const deleteCurrentUser = (user: User) => {
   return deleteUser(user);
 };
 
-
-
-// export const uploadImageAndUpdateProfile = async (
-//   user: User,
-//   name?: string,
-//   localUri?: string
-// ): Promise<{ success: boolean; message: string }> => {
-//   try {
-//     let photoURL: string | undefined = undefined;
-
-//     if (localUri) {
-//       // Read the local file as a blob
-//       const file = await FileSystem.readAsStringAsync(localUri, {
-//         encoding: FileSystem.EncodingType.Base64,
-//       });
-//       const imgBlob = new Blob([Uint8Array.from(atob(file), c => c.charCodeAt(0))]);
-
-//       // Upload to Firebase Storage
-//       const storage = getStorage();
-//       const storageRef = ref(storage, `profileImages/${user.uid}.jpg`);
-//       await uploadBytes(storageRef, imgBlob);
-
-//       // Get download URL
-//       photoURL = await getDownloadURL(storageRef);
-//     }
-
-//     // Update Firebase Auth profile
-//     await updateProfile(user, { displayName: name, photoURL });
-
-//     return { success: true, message: "Profile updated successfully!" };
-//   } catch (error: any) {
-//     return { success: false, message: error.message || "Failed to update profile." };
-//   }
-// };
-
+// Upload image and update profile
 export const uploadImageAndUpdateProfile = async (
   user: User,
   name?: string,
   localUri?: string
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    console.log("localUri", localUri);
     let photoURL: string | undefined;
 
     if (localUri) {
@@ -138,25 +83,28 @@ export const uploadImageAndUpdateProfile = async (
       const storageRef = ref(storage, `profileImages/${user.uid}.jpg`);
 
       const response = await fetch(localUri);
-      const blob = await response.blob();  // Expo compatible
+      const blob = await response.blob();
       await uploadBytes(storageRef, blob);
 
-      photoURL = await getDownloadURL(storageRef); // assign to photoURL
+      photoURL = await getDownloadURL(storageRef);
     }
 
     await updateProfile(user, { displayName: name, photoURL });
 
+    Alert.alert("Profile Update", "Profile updated successfully!", [{ text: "OK" }]);
+
     return { success: true, message: "Profile updated successfully!" };
   } catch (error: any) {
-  console.log(" STORAGE ERROR FULL:", JSON.stringify(error, null, 2));
-  return {
-    success: false,
-    message: error.message || "Failed to update profile.",
-  };
+    console.log("STORAGE ERROR FULL:", JSON.stringify(error, null, 2));
+
+    Alert.alert(
+      "Profile Update Failed",
+      error.message || "Failed to update profile.",
+      [{ text: "OK" }]
+    );
+
+    return { success: false, message: error.message || "Failed to update profile." };
   }
 };
 
-
-
-
-export { login, logOut, updateUserEmail, updateUserPassword,updateUserProfile, deleteCurrentUser };
+export { login, logOut, updateUserEmail, updateUserPassword, updateUserProfile, deleteCurrentUser };
